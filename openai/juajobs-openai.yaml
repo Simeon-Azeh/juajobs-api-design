@@ -1,0 +1,402 @@
+openapi: 3.0.0
+info:
+  title: JuaJobs API
+  description: RESTful API for the JuaJobs platform connecting workers and employers in Africa
+  version: 1.0.0
+  contact:
+    name: JuaJobs Support
+    email: support@juajobs.com
+    url: https://juajobs.com/support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.juajobs.com/v1
+    description: Production Server
+  - url: http://localhost:3000/v1
+    description: Local Dev Server
+
+tags:
+  - name: Users
+    description: Operations related to users (registration, login, profile)
+
+paths:
+  /users/register:
+    post:
+      summary: Register a new user
+      description: Allows a new worker or employer to create an account.
+      tags:
+        - Users
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+            example:
+              email: user@example.com
+              password: pa$$word
+              role: worker
+      responses:
+        '201':
+          description: User registered successfully
+        '400':
+          description: Invalid input data
+
+  /users/login:
+    post:
+      summary: User login
+      description: Authenticate user and receive a JWT token.
+      tags:
+        - Users
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            example:
+              email: user@example.com
+              password: pa$$word
+      responses:
+        '200':
+          description: Authentication successful, returns token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: Invalid email or password
+
+  /users/me:
+    get:
+      summary: Get current user profile
+      description: Returns the profile information of the authenticated user.
+      tags:
+        - Users
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 123e4567-e89b-12d3-a456-426614174000
+                email: user@example.com
+                role: worker
+                created_at: 2025-05-22T10:00:00Z
+        '401':
+          description: Unauthorized, invalid or missing token
+
+
+  /jobs:
+    get:
+      summary: List all job postings
+      description: Retrieve a paginated list of job postings with optional filters.
+      tags:
+        - Job Postings
+      operationId: listJobs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number for pagination
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+          description: Number of items per page
+        - name: location
+          in: query
+          schema:
+            type: string
+          description: Filter jobs by location
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter jobs by category
+      responses:
+        '200':
+          description: A list of job postings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of jobs matching query
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobPosting'
+
+    post:
+      summary: Create a new job posting
+      description: Allows employers to post new jobs.
+      tags:
+        - Job Postings
+      operationId: createJob
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostingCreate'
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+        '400':
+          description: Invalid input data
+        '401':
+          description: Unauthorized
+
+  /jobs/{jobId}:
+    get:
+      summary: Get job posting details
+      description: Retrieve detailed info for a specific job posting by ID.
+      tags:
+        - Job Postings
+      operationId: getJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique job posting identifier
+      responses:
+        '200':
+          description: Job details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+        '404':
+          description: Job not found
+
+    patch:
+      summary: Update a job posting
+      description: Allows employers to update their job postings.
+      tags:
+        - Job Postings
+      operationId: updateJob
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostingUpdate'
+      responses:
+        '200':
+          description: Job updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+        '400':
+          description: Invalid input data
+        '401':
+          description: Unauthorized
+        '404':
+          description: Job not found
+
+    delete:
+      summary: Delete a job posting
+      description: Allows employers to delete their job postings.
+      tags:
+        - Job Postings
+      operationId: deleteJob
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Job deleted successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Job not found
+
+components:
+  schemas:
+    JobPosting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique job posting ID
+        title:
+          type: string
+          description: Job title
+        description:
+          type: string
+          description: Detailed job description
+        location:
+          type: string
+          description: Job location
+        category:
+          type: string
+          description: Job category or sector
+        employer_id:
+          type: string
+          format: uuid
+          description: Employer user ID who posted the job
+        created_at:
+          type: string
+          format: date-time
+          description: Posting creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    JobPostingCreate:
+      type: object
+      required:
+        - title
+        - description
+        - location
+        - category
+      properties:
+        title:
+          type: string
+          description: Job title
+        description:
+          type: string
+          description: Detailed job description
+        location:
+          type: string
+          description: Job location
+        category:
+          type: string
+          description: Job category or sector
+
+    JobPostingUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Job title
+        description:
+          type: string
+          description: Detailed job description
+        location:
+          type: string
+          description: Job location
+        category:
+          type: string
+          description: Job category or sector
+
+  
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserRegister:
+      type: object
+      required:
+        - email
+        - password
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          format: password
+          description: User password
+        role:
+          type: string
+          enum: [worker, employer]
+          description: Role of the user
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          format: password
+          description: User password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authenticated sessions
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User email
+        role:
+          type: string
+          description: User role
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+

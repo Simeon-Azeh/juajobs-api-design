@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Postman
+*.postman_collection.json
+
+# Editors
+.vscode/
+.idea/
