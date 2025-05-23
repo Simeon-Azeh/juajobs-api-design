@@ -20,14 +20,15 @@ servers:
 tags:
   - name: Users
     description: Operations related to users (registration, login, profile)
+  - name: Job Postings  # Added missing tag
+    description: Operations related to job postings
 
 paths:
   /users/register:
     post:
       summary: Register a new user
       description: Allows a new worker or employer to create an account.
-      tags:
-        - Users
+      tags: [Users]
       operationId: registerUser
       requestBody:
         required: true
@@ -42,15 +43,22 @@ paths:
       responses:
         '201':
           description: User registered successfully
+          content:  # Added response content
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
         '400':
           description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /users/login:
     post:
       summary: User login
       description: Authenticate user and receive a JWT token.
-      tags:
-        - Users
+      tags: [Users]
       operationId: loginUser
       requestBody:
         required: true
@@ -72,13 +80,16 @@ paths:
                 token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         '401':
           description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /users/me:
     get:
       summary: Get current user profile
       description: Returns the profile information of the authenticated user.
-      tags:
-        - Users
+      tags: [Users]
       operationId: getCurrentUser
       security:
         - bearerAuth: []
@@ -96,14 +107,16 @@ paths:
                 created_at: 2025-05-22T10:00:00Z
         '401':
           description: Unauthorized, invalid or missing token
-
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /jobs:
     get:
       summary: List all job postings
       description: Retrieve a paginated list of job postings with optional filters.
-      tags:
-        - Job Postings
+      tags: [Job Postings]
       operationId: listJobs
       parameters:
         - name: page
@@ -149,12 +162,17 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/JobPosting'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     post:
       summary: Create a new job posting
       description: Allows employers to post new jobs.
-      tags:
-        - Job Postings
+      tags: [Job Postings]
       operationId: createJob
       security:
         - bearerAuth: []
@@ -164,6 +182,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/JobPostingCreate'
+            example:  # Added example
+              title: "Web Developer Needed"
+              description: "Build a company website"
+              location: "Nairobi"
+              category: "IT"
       responses:
         '201':
           description: Job created successfully
@@ -173,15 +196,22 @@ paths:
                 $ref: '#/components/schemas/JobPosting'
         '400':
           description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /jobs/{jobId}:
     get:
       summary: Get job posting details
       description: Retrieve detailed info for a specific job posting by ID.
-      tags:
-        - Job Postings
+      tags: [Job Postings]
       operationId: getJob
       parameters:
         - name: jobId
@@ -200,12 +230,15 @@ paths:
                 $ref: '#/components/schemas/JobPosting'
         '404':
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     patch:
       summary: Update a job posting
       description: Allows employers to update their job postings.
-      tags:
-        - Job Postings
+      tags: [Job Postings]
       operationId: updateJob
       security:
         - bearerAuth: []
@@ -222,6 +255,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/JobPostingUpdate'
+            example:
+              title: "Updated Web Developer Position"
       responses:
         '200':
           description: Job updated successfully
@@ -231,16 +266,27 @@ paths:
                 $ref: '#/components/schemas/JobPosting'
         '400':
           description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       summary: Delete a job posting
       description: Allows employers to delete their job postings.
-      tags:
-        - Job Postings
+      tags: [Job Postings]
       operationId: deleteJob
       security:
         - bearerAuth: []
@@ -256,81 +302,17 @@ paths:
           description: Job deleted successfully
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-components:
-  schemas:
-    JobPosting:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Unique job posting ID
-        title:
-          type: string
-          description: Job title
-        description:
-          type: string
-          description: Detailed job description
-        location:
-          type: string
-          description: Job location
-        category:
-          type: string
-          description: Job category or sector
-        employer_id:
-          type: string
-          format: uuid
-          description: Employer user ID who posted the job
-        created_at:
-          type: string
-          format: date-time
-          description: Posting creation timestamp
-        updated_at:
-          type: string
-          format: date-time
-          description: Last update timestamp
-
-    JobPostingCreate:
-      type: object
-      required:
-        - title
-        - description
-        - location
-        - category
-      properties:
-        title:
-          type: string
-          description: Job title
-        description:
-          type: string
-          description: Detailed job description
-        location:
-          type: string
-          description: Job location
-        category:
-          type: string
-          description: Job category or sector
-
-    JobPostingUpdate:
-      type: object
-      properties:
-        title:
-          type: string
-          description: Job title
-        description:
-          type: string
-          description: Detailed job description
-        location:
-          type: string
-          description: Job location
-        category:
-          type: string
-          description: Job category or sector
-
-  
 components:
   securitySchemes:
     bearerAuth:
@@ -339,47 +321,54 @@ components:
       bearerFormat: JWT
 
   schemas:
+    # Error schema added
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: string
+
     UserRegister:
       type: object
-      required:
-        - email
-        - password
-        - role
+      required: [email, password, role]
       properties:
         email:
           type: string
           format: email
-          description: User's email address
         password:
           type: string
           format: password
-          description: User password
+          minLength: 8
         role:
           type: string
           enum: [worker, employer]
-          description: Role of the user
 
     UserLogin:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
           format: email
-          description: User's email address
         password:
           type: string
           format: password
-          description: User password
 
     AuthResponse:
       type: object
       properties:
         token:
           type: string
-          description: JWT token for authenticated sessions
+        expires_in:
+          type: integer
+          description: Token expiration in seconds
 
     User:
       type: object
@@ -387,16 +376,77 @@ components:
         id:
           type: string
           format: uuid
-          description: Unique user identifier
         email:
           type: string
           format: email
-          description: User email
         role:
           type: string
-          description: User role
         created_at:
           type: string
           format: date-time
-          description: Account creation timestamp
+        updated_at:
+          type: string
+          format: date-time
 
+    JobPosting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        category:
+          type: string
+        employer_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        status:  # Added status field
+          type: string
+          enum: [draft, published, closed]
+          default: published
+
+    JobPostingCreate:
+      type: object
+      required: [title, description, location, category]
+      properties:
+        title:
+          type: string
+          minLength: 5
+        description:
+          type: string
+          minLength: 10
+        location:
+          type: string
+        category:
+          type: string
+        budget:  # Added optional field
+          type: number
+          minimum: 0
+
+    JobPostingUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+        description:
+          type: string
+          minLength: 10
+        location:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+          enum: [draft, published, closed]
