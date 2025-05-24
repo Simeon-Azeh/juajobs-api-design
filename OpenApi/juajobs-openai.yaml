@@ -20,8 +20,12 @@ servers:
 tags:
   - name: Users
     description: Operations related to users (registration, login, profile)
-  - name: Job Postings  # Added missing tag
+  - name: Job Postings  
     description: Operations related to job postings
+  - name: Applications  # ADDED: New resource for job applications
+    description: Job application management
+  - name: Reviews      # ADDED: New resource for reviews
+    description: Worker reviews and ratings
 
 paths:
   /users/register:
@@ -40,6 +44,8 @@ paths:
               email: user@example.com
               password: pa$$word
               role: worker
+              name: "John Doe"         # ADDED: Required field
+              phone: "+254712345678"   # ADDED: Important for African context
       responses:
         '201':
           description: User registered successfully
@@ -143,6 +149,17 @@ paths:
           schema:
             type: string
           description: Filter jobs by category
+        - name: min_budget        # ADDED: Important filter for workers
+          in: query
+          schema:
+            type: number
+          description: Minimum job budget
+        - name: max_budget        # ADDED: Important filter for workers
+          in: query
+          schema:
+            type: number
+          description: Maximum job budget
+
       responses:
         '200':
           description: A list of job postings
@@ -379,8 +396,13 @@ components:
         email:
           type: string
           format: email
+        name:          # ADDED
+          type: string
+        phone:         # ADDED: Critical for African market
+          type: string
         role:
           type: string
+          enum: [worker, employer]
         created_at:
           type: string
           format: date-time
@@ -402,19 +424,51 @@ components:
           type: string
         category:
           type: string
+        budget:        # ADDED: Made required for African gig economy context
+          type: number
+          minimum: 0
+        currency:      # ADDED: Important for multi-country platform
+          type: string
+          enum: [KES, NGN, ZAR, USD]
+          default: KES
         employer_id:
           type: string
           format: uuid
+        status:
+          type: string
+          enum: [draft, published, closed, completed]  # ADDED 'completed'
+          default: published
         created_at:
           type: string
-          format: date-time
         updated_at:
           type: string
           format: date-time
-        status:  # Added status field
+      
+
+    # ADDED: New resource for job applications
+    JobApplication:
+      type: object
+      properties:
+        id:
           type: string
-          enum: [draft, published, closed]
-          default: published
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        worker_id:
+          type: string
+          format: uuid
+        cover_letter:
+          type: string
+        proposed_rate:
+          type: number
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+          default: pending
+        created_at:
+          type: string
+          format: date-time
 
     JobPostingCreate:
       type: object
