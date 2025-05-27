@@ -22,10 +22,14 @@ tags:
     description: Operations related to users (registration, login, profile)
   - name: Job Postings  
     description: Operations related to job postings
-  - name: Applications  # ADDED: New resource for job applications
+  - name: Applications
     description: Job application management
-  - name: Reviews      # ADDED: New resource for reviews
+  - name: Reviews
     description: Worker reviews and ratings
+  - name: Payments
+    description: Payment processing for completed jobs
+  - name: Messages
+    description: Communication between workers and employers
 
 paths:
   /users/register:
@@ -44,12 +48,12 @@ paths:
               email: user@example.com
               password: pa$$word
               role: worker
-              name: "John Doe"         # ADDED: Required field
-              phone: "+254712345678"   # ADDED: Important for African context
+              name: "John Doe"
+              phone: "+254712345678"
       responses:
         '201':
           description: User registered successfully
-          content:  # Added response content
+          content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
@@ -106,13 +110,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-              example:
-                id: 123e4567-e89b-12d3-a456-426614174000
-                email: user@example.com
-                role: worker
-                created_at: 2025-05-22T10:00:00Z
         '401':
           description: Unauthorized, invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update user profile
+      description: Update the current user's profile information.
+      tags: [Users]
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -149,16 +181,22 @@ paths:
           schema:
             type: string
           description: Filter jobs by category
-        - name: min_budget        # ADDED: Important filter for workers
+        - name: min_budget
           in: query
           schema:
             type: number
           description: Minimum job budget
-        - name: max_budget        # ADDED: Important filter for workers
+        - name: max_budget
           in: query
           schema:
             type: number
           description: Maximum job budget
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [published, closed, completed]
+          description: Filter jobs by status
 
       responses:
         '200':
@@ -199,11 +237,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/JobPostingCreate'
-            example:  # Added example
+            example:
               title: "Web Developer Needed"
               description: "Build a company website"
               location: "Nairobi"
               category: "IT"
+              budget: 50000
+              currency: "KES"
       responses:
         '201':
           description: Job created successfully
@@ -274,6 +314,7 @@ paths:
               $ref: '#/components/schemas/JobPostingUpdate'
             example:
               title: "Updated Web Developer Position"
+              status: "closed"
       responses:
         '200':
           description: Job updated successfully
@@ -330,6 +371,458 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # Applications endpoints
+  /applications:
+    get:
+      summary: List job applications
+      description: Get applications for the current user (worker sees their applications, employer sees applications to their jobs).
+      tags: [Applications]
+      operationId: listApplications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, rejected]
+          description: Filter by application status
+        - name: job_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific job (for employers)
+      responses:
+        '200':
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobApplication'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Apply for a job
+      description: Submit an application for a job posting.
+      tags: [Applications]
+      operationId: createApplication
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobApplicationCreate'
+            example:
+              job_id: "123e4567-e89b-12d3-a456-426614174000"
+              cover_letter: "I'm interested in this position because..."
+              proposed_rate: 45000
+      responses:
+        '201':
+          description: Application submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobApplication'
+        '400':
+          description: Invalid input or already applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /applications/{applicationId}:
+    get:
+      summary: Get application details
+      description: Retrieve details of a specific application.
+      tags: [Applications]
+      operationId: getApplication
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobApplication'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update application status
+      description: Accept or reject an application (employers only).
+      tags: [Applications]
+      operationId: updateApplication
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+                feedback:
+                  type: string
+                  description: Optional feedback for the applicant
+      responses:
+        '200':
+          description: Application status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobApplication'
+        '400':
+          description: Invalid status change
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Reviews endpoints
+  /reviews:
+    get:
+      summary: List reviews
+      description: Get reviews for a specific worker or all reviews by current user.
+      tags: [Reviews]
+      operationId: listReviews
+      parameters:
+        - name: worker_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Get reviews for a specific worker
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        '200':
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  average_rating:
+                    type: number
+                    format: float
+                    description: Average rating for the worker
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+
+    post:
+      summary: Create a review
+      description: Leave a review for a worker after job completion.
+      tags: [Reviews]
+      operationId: createReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreate'
+            example:
+              job_id: "123e4567-e89b-12d3-a456-426614174000"
+              worker_id: "456e7890-e89b-12d3-a456-426614174000"
+              rating: 5
+              comment: "Excellent work, delivered on time!"
+      responses:
+        '201':
+          description: Review created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          description: Invalid input or job not completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Payments endpoints
+  /payments:
+    get:
+      summary: List payments
+      description: Get payment history for the current user.
+      tags: [Payments]
+      operationId: listPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, failed, refunded]
+      responses:
+        '200':
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  payments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+
+    post:
+      summary: Process payment
+      description: Process payment for a completed job.
+      tags: [Payments]
+      operationId: createPayment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCreate'
+      responses:
+        '201':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          description: Invalid payment request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Messages endpoints
+  /messages:
+    get:
+      summary: List conversations
+      description: Get all message conversations for the current user.
+      tags: [Messages]
+      operationId: listConversations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+
+    post:
+      summary: Send a message
+      description: Send a message to another user.
+      tags: [Messages]
+      operationId: sendMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid message data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /messages/{conversationId}:
+    get:
+      summary: Get conversation messages
+      description: Retrieve all messages in a conversation.
+      tags: [Messages]
+      operationId: getConversationMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Conversation messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -338,7 +831,6 @@ components:
       bearerFormat: JWT
 
   schemas:
-    # Error schema added
     Error:
       type: object
       properties:
@@ -354,7 +846,7 @@ components:
 
     UserRegister:
       type: object
-      required: [email, password, role]
+      required: [email, password, role, name, phone]
       properties:
         email:
           type: string
@@ -366,6 +858,12 @@ components:
         role:
           type: string
           enum: [worker, employer]
+        name:
+          type: string
+          minLength: 2
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
 
     UserLogin:
       type: object
@@ -378,6 +876,22 @@ components:
           type: string
           format: password
 
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+        bio:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+
     AuthResponse:
       type: object
       properties:
@@ -386,6 +900,8 @@ components:
         expires_in:
           type: integer
           description: Token expiration in seconds
+        user:
+          $ref: '#/components/schemas/User'
 
     User:
       type: object
@@ -396,13 +912,26 @@ components:
         email:
           type: string
           format: email
-        name:          # ADDED
+        name:
           type: string
-        phone:         # ADDED: Critical for African market
+        phone:
           type: string
         role:
           type: string
           enum: [worker, employer]
+        bio:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+        total_reviews:
+          type: integer
         created_at:
           type: string
           format: date-time
@@ -424,49 +953,32 @@ components:
           type: string
         category:
           type: string
-        budget:        # ADDED: Made required for African gig economy context
+        budget:
           type: number
           minimum: 0
-        currency:      # ADDED: Important for multi-country platform
+        currency:
           type: string
           enum: [KES, NGN, ZAR, USD]
           default: KES
         employer_id:
           type: string
           format: uuid
+        employer:
+          $ref: '#/components/schemas/User'
         status:
           type: string
-          enum: [draft, published, closed, completed]  # ADDED 'completed'
+          enum: [draft, published, closed, completed]
           default: published
+        skills_required:
+          type: array
+          items:
+            type: string
+        application_count:
+          type: integer
         created_at:
-          type: string
-        updated_at:
           type: string
           format: date-time
-      
-
-    # ADDED: New resource for job applications
-    JobApplication:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        job_id:
-          type: string
-          format: uuid
-        worker_id:
-          type: string
-          format: uuid
-        cover_letter:
-          type: string
-        proposed_rate:
-          type: number
-        status:
-          type: string
-          enum: [pending, accepted, rejected]
-          default: pending
-        created_at:
+        updated_at:
           type: string
           format: date-time
 
@@ -484,9 +996,17 @@ components:
           type: string
         category:
           type: string
-        budget:  # Added optional field
+        budget:
           type: number
           minimum: 0
+        currency:
+          type: string
+          enum: [KES, NGN, ZAR, USD]
+          default: KES
+        skills_required:
+          type: array
+          items:
+            type: string
 
     JobPostingUpdate:
       type: object
@@ -501,6 +1021,224 @@ components:
           type: string
         category:
           type: string
+        budget:
+          type: number
+          minimum: 0
         status:
           type: string
-          enum: [draft, published, closed]
+          enum: [draft, published, closed, completed]
+        skills_required:
+          type: array
+          items:
+            type: string
+
+    JobApplication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        job:
+          $ref: '#/components/schemas/JobPosting'
+        worker_id:
+          type: string
+          format: uuid
+        worker:
+          $ref: '#/components/schemas/User'
+        cover_letter:
+          type: string
+        proposed_rate:
+          type: number
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+          default: pending
+        feedback:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    JobApplicationCreate:
+      type: object
+      required: [job_id, cover_letter]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        cover_letter:
+          type: string
+          minLength: 10
+        proposed_rate:
+          type: number
+          minimum: 0
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        worker_id:
+          type: string
+          format: uuid
+        worker:
+          $ref: '#/components/schemas/User'
+        employer_id:
+          type: string
+          format: uuid
+        employer:
+          $ref: '#/components/schemas/User'
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ReviewCreate:
+      type: object
+      required: [job_id, worker_id, rating]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        worker_id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        payer_id:
+          type: string
+          format: uuid
+        recipient_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        currency:
+          type: string
+          enum: [KES, NGN, ZAR, USD]
+        status:
+          type: string
+          enum: [pending, completed, failed, refunded]
+        payment_method:
+          type: string
+          enum: [mpesa, bank_transfer, card]
+        transaction_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PaymentCreate:
+      type: object
+      required: [job_id, amount, payment_method]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          minimum: 0
+        payment_method:
+          type: string
+          enum: [mpesa, bank_transfer, card]
+        phone_number:
+          type: string
+          description: Required for mobile money payments
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        participant1_id:
+          type: string
+          format: uuid
+        participant1:
+          $ref: '#/components/schemas/User'
+        participant2_id:
+          type: string
+          format: uuid
+        participant2:
+          $ref: '#/components/schemas/User'
+        last_message:
+          $ref: '#/components/schemas/Message'
+        unread_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        sender:
+          $ref: '#/components/schemas/User'
+        content:
+          type: string
+        message_type:
+          type: string
+          enum: [text, file, image]
+          default: text
+        is_read:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+
+    MessageCreate:
+      type: object
+      required: [recipient_id, content]
+      properties:
+        recipient_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+          minLength: 1
+        message_type:
+          type: string
+          enum: [text, file, image]
+          default: text
