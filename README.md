@@ -18,6 +18,7 @@ Design a scalable, secure, and African-context-aware RESTful API to power job li
 - ⬜ Optional: Postman collection (`tools/postman_collection.json`)
 - ⬜ Optional: Presentation deck or Loom video
 - API document: https://docs.google.com/document/d/1vfOkLM5bfK7xhDxyUAUWdzCRsiWKQYvn7ANtMyxjgqs/edit?usp=sharing
+- JuaJobs API – Market Adaptation Document: 
 
 ---
 
@@ -52,7 +53,9 @@ Design a scalable, secure, and African-context-aware RESTful API to power job li
 ## 🤝 Contributors
 
 - **Simeon Azeh Kongnyuy** – 
-Please add your name 
+- **Vanessa UWONKUNDA** -
+- **Lenine NGENZI**
+
 
 ---
 
