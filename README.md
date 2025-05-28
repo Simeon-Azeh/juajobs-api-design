@@ -19,6 +19,7 @@ Design a scalable, secure, and African-context-aware RESTful API to power job li
 - ⬜ Optional: Presentation deck or Loom video
 - API document: https://docs.google.com/document/d/1vfOkLM5bfK7xhDxyUAUWdzCRsiWKQYvn7ANtMyxjgqs/edit?usp=sharing
 - JuaJobs API – Market Adaptation Document: https://docs.google.com/document/d/1NpeROQj8xEY9sKvR89UjnC5rmYibbgFl3MArNyqJ_8s/edit?usp=sharing
+- JuaJobs API - API Design Document : https://docs.google.com/document/d/1diI6x2yTzXrpUfde1cz3-N94j50Num-wUYqJpA5Z-ws/edit?usp=sharing
 
 ---
 
@@ -54,7 +55,7 @@ Design a scalable, secure, and African-context-aware RESTful API to power job li
 
 - **Simeon Azeh Kongnyuy** – 
 - **Vanessa UWONKUNDA** -
-- **Lenine NGENZI**
+- **Lenine NGENZI** -
 
 
 ---
